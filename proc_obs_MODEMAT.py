@@ -54,34 +54,70 @@ try:
 
 	#Obtengo fecha actual
 	now = datetime.datetime.now()
-	fecha = "FECH:%s %s %s %s:00:00" % (config.get('FUENTE_DE_DATOS','data_ano_inicio'), config.get('FUENTE_DE_DATOS','data_mes_inicio'), config.get('FUENTE_DE_DATOS','data_dia_inicio'), now.hour)
+	fecha = "FECH:%s %s %s %s:00:00" % (config.get('FUENTE_DE_DATOS','data_ano_inicio'), config.get('FUENTE_DE_DATOS','data_mes_inicio'), config.get('FUENTE_DE_DATOS','data_dia_inicio'), config.get('FUENTE_DE_DATOS','data_hora_inicio'))
 	logging.info('Main process: %s', 'Setting date ' + fecha) 
+
+##########################################################################################################
 
 	#Proceso METAR
 	logging.info('Main process: %s', 'Processing METAR')
 	out_file = open(config.get('IO','nombre_metar'),"w")
 	out_file.write(fecha + "\n")
 
-	parametros = {
-		'estado': config.get('FUENTE_DE_DATOS','data_estado'),
-		'fmt': config.get('FUENTE_DE_DATOS','data_formato'),
-		'iord': config.get('FUENTE_DE_DATOS','data_iord')
-	}
+	#Verifico si es busqueda por pais o por estacion
+	if not config.get('BUSQUEDA_ESTACION','busqueda_por_estacion'):
 
-	q_url=config.get('FUENTE_DE_DATOS','data_url_metar')
+		parametros = {
+			'estado': config.get('FUENTE_DE_DATOS','data_estado'),
+			'fmt': config.get('FUENTE_DE_DATOS','data_formato'),
+			'iord': config.get('FUENTE_DE_DATOS','data_iord')
+		}
 
-	r = requests.get(q_url, params=parametros)
-	tree = html.fromstring(r.text)
-	info = tree.xpath('//pre/text()')
-	
-	i = 1
-	for sonda in info:
-		out_file.write(sonda[6:] + "\n")
-		#print "Linea " + str(i) + ": " + repr(sonda)
-		i = i + 1
-	out_file.close()
+		q_url=config.get('FUENTE_DE_DATOS','data_url_metar')
+
+		r = requests.get(q_url, params=parametros)
+		tree = html.fromstring(r.text)
+		info = tree.xpath('//pre/text()')
+		
+		i = 1
+		for sonda in info:
+			out_file.write(sonda[6:] + "\n")
+			#print "Linea " + str(i) + ": " + repr(sonda)
+			i = i + 1
+		out_file.close()
+
+	else:
+		estaciones = config.get('BUSQUEDA_ESTACION','codigo_estacion_metar')
+		estaciones = estaciones[1:len(estaciones)-1].split(',')
+		for estacion in estaciones:
+			parametros = {
+				'lugar': estacion,
+				'tipo': config.get('FUENTE_DE_DATOS','data_tipo'),
+				'ord': config.get('FUENTE_DE_DATOS','data_orden'),
+				'nil': config.get('FUENTE_DE_DATOS','data_incluir_nulo'),
+				'fmt': config.get('FUENTE_DE_DATOS','data_formato'),
+				'ano': config.get('FUENTE_DE_DATOS','data_ano_inicio'),
+				'mes': config.get('FUENTE_DE_DATOS','data_mes_inicio'),
+				'day': config.get('FUENTE_DE_DATOS','data_dia_inicio'),
+				'hora': config.get('FUENTE_DE_DATOS','data_hora_inicio'),
+				'anof': config.get('FUENTE_DE_DATOS','data_ano_fin'),
+				'mesf': config.get('FUENTE_DE_DATOS','data_mes_fin'),
+				'dayf': config.get('FUENTE_DE_DATOS','data_dia_fin'),
+				'horaf': config.get('FUENTE_DE_DATOS','data_hora_fin'),
+				'minf': '59'
+			}
+			q_url=config.get('FUENTE_DE_DATOS','data_url_metar_estacion')
+			r = requests.get(q_url, params=parametros)
+			tree = html.fromstring(r.text)
+			info = tree.xpath('//pre/text()')
+			for sonda in info:
+				out_file.write(sonda[6:] + "\n")
+			logging.info('Main process: %s', os.getcwd()+'/'+config.get('IO','nombre_metar') + ' wrote ' + estacion + ' station successfully!')
+		out_file.close()
 
 	logging.info('Main process: %s', os.getcwd()+'/'+config.get('IO','nombre_metar') + ' wrote successfully!')
+
+#############################################################################################################################
 
 	#Proceso SYNOP
 	logging.info("Main process: %s", "Processing SYNOP")
@@ -97,11 +133,11 @@ try:
 		'ano': config.get('FUENTE_DE_DATOS','data_ano_inicio'),
 		'mes': config.get('FUENTE_DE_DATOS','data_mes_inicio'),
 		'day': config.get('FUENTE_DE_DATOS','data_dia_inicio'),
-		'hora': str(now.hour),
+		'hora': config.get('FUENTE_DE_DATOS','data_hora_inicio'),
 		'anof': config.get('FUENTE_DE_DATOS','data_ano_fin'),
 		'mesf': config.get('FUENTE_DE_DATOS','data_mes_fin'),
 		'dayf': config.get('FUENTE_DE_DATOS','data_dia_fin'),
-		'horaf': str(now.hour)
+		'horaf': config.get('FUENTE_DE_DATOS','data_hora_fin')
 	}
 
 	q_url=config.get('FUENTE_DE_DATOS','data_url_synops')
@@ -117,6 +153,8 @@ try:
 	out_file.close()
 
 	logging.info('Main process: %s', os.getcwd()+'/'+config.get('IO','nombre_synop') + ' wrote successfully!')
+
+#############################################################################################################################
 
 	#Proceso TEMP
 	logging.info("Main process: %s", "Processing TEMP")
